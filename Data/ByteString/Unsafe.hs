@@ -63,9 +63,6 @@ import Data.Word                (Word8)
 import qualified Foreign.ForeignPtr as FC (finalizeForeignPtr)
 import qualified Foreign.Concurrent as FC (newForeignPtr)
 
-import GHC.Prim                 (Addr#)
-import GHC.Ptr                  (Ptr(..))
-
 -- ---------------------------------------------------------------------
 --
 -- Extensions to the basic interface
