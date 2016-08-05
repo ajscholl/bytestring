@@ -122,30 +122,6 @@ unsafeDrop  :: Int -> ByteString -> ByteString
 unsafeDrop n (PS x s l) = assert (0 <= n && n <= l) $ PS x (s+n) (l-n)
 {-# INLINE unsafeDrop #-}
 
-
--- | /O(1)/ 'unsafePackAddressLen' provides constant-time construction of
--- 'ByteString's, which is ideal for string literals. It packs a sequence
--- of bytes into a @ByteString@, given a raw 'Addr#' to the string, and
--- the length of the string.
---
--- This function is /unsafe/ in two ways:
---
--- * the length argument is assumed to be correct. If the length
--- argument is incorrect, it is possible to overstep the end of the
--- byte array.
---
--- * if the underying Addr# is later modified, this change will be
--- reflected in resulting @ByteString@, breaking referential
--- transparency.
---
--- If in doubt, don't use this function.
---
-unsafePackAddressLen :: Int -> Addr# -> IO ByteString
-unsafePackAddressLen len addr# = do
-    p <- newForeignPtr_ (Ptr addr#)
-    return $ PS p 0 len
-{-# INLINE unsafePackAddressLen #-}
-
 -- | /O(1)/ Construct a 'ByteString' given a Ptr Word8 to a buffer, a
 -- length, and an IO action representing a finalizer. This function is
 -- not available on Hugs.

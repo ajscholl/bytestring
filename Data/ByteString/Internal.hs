@@ -33,7 +33,7 @@ module Data.ByteString.Internal (
         packChars, packUptoLenChars, unsafePackLenChars,
         unpackBytes, unpackAppendBytesLazy, unpackAppendBytesStrict,
         unpackChars, unpackAppendCharsLazy, unpackAppendCharsStrict,
-        unsafePackAddress,
+        unsafePackAddress, unsafePackAddressLen,
         checkedSum,
 
         -- * Low level imperative construction
@@ -125,7 +125,7 @@ import GHC.IO                   (unsafeDupablePerformIO)
 import GHC.IOBase               (unsafeDupablePerformIO)
 #endif
 
-import GHC.Base                 (nullAddr#)
+import GHC.Base                 (nullAddr#, Int(..))
 import GHC.ForeignPtr           (ForeignPtr(ForeignPtr)
                                 ,newForeignPtr_, mallocPlainForeignPtrBytes)
 import GHC.Ptr                  (Ptr(..), castPtr)
@@ -196,10 +196,19 @@ packChars cs = unsafePackLenChars (List.length cs) cs
 
 {-# INLINE [0] packChars #-}
 
+-- yes, this should test ghc-prim, but ghc-prim was not yet bumped to 0.6.0.0
+-- and doing so meant changing some additional cabal files, i.e. in vector...
+#if __GLASGOW_HASKELL__ > 800
+{-# RULES
+"ByteString packChars/packAddress" forall l s .
+   packChars (unpackCString# (# l, s #)) = accursedUnutterablePerformIO (unsafePackAddressLen (I# l) s)
+ #-}
+#else
 {-# RULES
 "ByteString packChars/packAddress" forall s .
    packChars (unpackCString# s) = accursedUnutterablePerformIO (unsafePackAddress s)
  #-}
+#endif
 
 unsafePackLenBytes :: Int -> [Word8] -> ByteString
 unsafePackLenBytes len xs0 =
@@ -246,6 +255,30 @@ unsafePackAddress addr# = do
     cstr :: CString
     cstr = Ptr addr#
 {-# INLINE unsafePackAddress #-}
+
+
+-- | /O(1)/ 'unsafePackAddressLen' provides constant-time construction of
+-- 'ByteString's, which is ideal for string literals. It packs a sequence
+-- of bytes into a @ByteString@, given a raw 'Addr#' to the string, and
+-- the length of the string.
+--
+-- This function is /unsafe/ in two ways:
+--
+-- * the length argument is assumed to be correct. If the length
+-- argument is incorrect, it is possible to overstep the end of the
+-- byte array.
+--
+-- * if the underying Addr# is later modified, this change will be
+-- reflected in resulting @ByteString@, breaking referential
+-- transparency.
+--
+-- If in doubt, don't use this function.
+--
+unsafePackAddressLen :: Int -> Addr# -> IO ByteString
+unsafePackAddressLen len addr# = do
+    p <- newForeignPtr_ (Ptr addr#)
+    return $ PS p 0 len
+{-# INLINE unsafePackAddressLen #-}
 
 
 packUptoLenBytes :: Int -> [Word8] -> (ByteString, [Word8])
